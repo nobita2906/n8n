@@ -50,7 +50,7 @@ read -p "Nhập dung lượng swap (GB): " swap_size
 # Cập nhật, cài gói, Nginx, Docker, FFmpeg...
 ###############################################################################
 apt update -y && apt upgrade -y
-apt install -y curl gnupg2 ca-certificates lsb-release software-properties-common unzip zip ufw sudo
+apt install -y curl gnupg2 ca-certificates lsb-release software-properties-common unzip zip ufw sudo nginx
 
 # Cài FFmpeg (theo cách thủ công nếu cần version mới)
 echo "===== Cài đặt FFmpeg 7.1 ====="
@@ -68,7 +68,6 @@ usermod -aG docker $USER
 apt install -y docker-compose-plugin
 
 # Bỏ cài Redis bên ngoài để tránh trùng port
-# Nếu cần Redis ngoài container, hãy chỉnh lại docker-compose.yml thủ công
 
 # Cài Let's Encrypt (nếu AUTO_SSL)
 if [[ "$AUTO_SSL" =~ ^[Yy]$ ]]; then
@@ -96,6 +95,19 @@ swapon /swapfile
 
 ###############################################################################
 # Thiết lập Docker Compose file cả n8n, postgres, redis
+
+# Kiểm tra nếu thư mục đã tồn tại
+if [ -d "/opt/n8n/${HOSTNAME}" ]; then
+  echo "
+[⚠️] Thư mục /opt/n8n/${HOSTNAME} đã tồn tại."
+  read -p "Bạn có muốn ghi đè không? (y/n): " OVERWRITE
+  if [[ ! "$OVERWRITE" =~ ^[Yy]$ ]]; then
+    echo "Đã hủy cài đặt."
+    exit 1
+  fi
+  echo "Đang ghi đè thư mục cũ..."
+  rm -rf "/opt/n8n/${HOSTNAME}"
+fi
 ###############################################################################
 INSTALL_DIR="/opt/n8n/${HOSTNAME}"
 mkdir -p "$INSTALL_DIR" && cd "$INSTALL_DIR"
@@ -157,6 +169,39 @@ EOF
 docker compose pull
 chown -R 1000:1000 $INSTALL_DIR/* || true
 docker compose up -d
+
+###############################################################################
+# Cấu hình Nginx reverse proxy trỏ về n8n container
+###############################################################################
+cat > /etc/nginx/sites-available/${HOSTNAME} <<EOF
+server {
+    listen 80;
+    server_name ${HOSTNAME};
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${HOSTNAME};
+
+    ssl_certificate ${SSL_CERT_PATH};
+    ssl_certificate_key ${SSL_KEY_PATH};
+
+    location / {
+        proxy_pass http://localhost:5678;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+ln -s /etc/nginx/sites-available/${HOSTNAME} /etc/nginx/sites-enabled/${HOSTNAME} || true
+nginx -t && systemctl reload nginx
 
 ###############################################################################
 echo "\n[CÀI ĐẶT HOÀN TẤT] n8n đang chạy tại: https://${HOSTNAME}"
