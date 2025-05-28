@@ -52,7 +52,7 @@ read -p "Nhập dung lượng swap (GB): " swap_size
 apt update -y && apt upgrade -y
 apt install -y curl gnupg2 ca-certificates lsb-release software-properties-common unzip zip ufw sudo nginx
 
-# Cài FFmpeg (theo cách thủ công nếu cần version mới)
+# Cài FFmpeg
 echo "===== Cài đặt FFmpeg 7.1 ====="
 apt remove --purge -y ffmpeg || true
 apt autoremove -y
@@ -67,11 +67,13 @@ usermod -aG docker $USER
 # Cài Docker Compose Plugin
 apt install -y docker-compose-plugin
 
-# Bỏ cài Redis bên ngoài để tránh trùng port
-
-# Cài Let's Encrypt (nếu AUTO_SSL)
+# SSL
 if [[ "$AUTO_SSL" =~ ^[Yy]$ ]]; then
   apt install -y certbot python3-certbot-nginx
+  if [ -f /etc/nginx/sites-enabled/${HOSTNAME} ]; then
+    rm -f /etc/nginx/sites-enabled/${HOSTNAME}
+  fi
+  nginx -t && systemctl reload nginx
   certbot certonly --nginx -d "$HOSTNAME"
   SSL_CERT_PATH="/etc/letsencrypt/live/$HOSTNAME/fullchain.pem"
   SSL_KEY_PATH="/etc/letsencrypt/live/$HOSTNAME/privkey.pem"
@@ -83,9 +85,7 @@ else
   SSL_KEY_PATH="/etc/nginx/ssl/${HOSTNAME}/private.key"
 fi
 
-###############################################################################
-# Tạo swap
-###############################################################################
+# Swap
 swapoff /swapfile || true
 fallocate -l "${swap_size}G" /swapfile
 chmod 600 /swapfile
@@ -93,26 +93,20 @@ mkswap /swapfile
 swapon /swapfile
 [[ $(grep -c "/swapfile" /etc/fstab) -eq 0 ]] && echo '/swapfile none swap sw 0 0' >> /etc/fstab
 
-###############################################################################
-# Thiết lập Docker Compose file cả n8n, postgres, redis
-
-# Kiểm tra nếu thư mục đã tồn tại
+# Docker Compose
 if [ -d "/opt/n8n/${HOSTNAME}" ]; then
-  echo "
-[⚠️] Thư mục /opt/n8n/${HOSTNAME} đã tồn tại."
+  echo "[⚠️] Thư mục /opt/n8n/${HOSTNAME} đã tồn tại."
   read -p "Bạn có muốn ghi đè không? (y/n): " OVERWRITE
   if [[ ! "$OVERWRITE" =~ ^[Yy]$ ]]; then
     echo "Đã hủy cài đặt."
     exit 1
   fi
-  echo "Đang ghi đè thư mục cũ..."
   rm -rf "/opt/n8n/${HOSTNAME}"
 fi
-###############################################################################
+
 INSTALL_DIR="/opt/n8n/${HOSTNAME}"
 mkdir -p "$INSTALL_DIR" && cd "$INSTALL_DIR"
 
-# .env
 cat > .env <<EOF
 HOSTNAME=${HOSTNAME}
 POSTGRES_USER=${POSTGRES_USER}
@@ -121,7 +115,6 @@ POSTGRES_DB=${POSTGRES_DB}
 EOF
 chmod 600 .env
 
-# docker-compose.yml
 cat > docker-compose.yml <<EOF
 version: '3.7'
 services:
@@ -165,14 +158,11 @@ services:
       - ./n8n:/home/node/.n8n
 EOF
 
-# Khởi động Docker
 docker compose pull
 chown -R 1000:1000 $INSTALL_DIR/* || true
 docker compose up -d
 
-###############################################################################
-# Cấu hình Nginx reverse proxy trỏ về n8n container
-###############################################################################
+# Nginx config
 cat > /etc/nginx/sites-available/${HOSTNAME} <<EOF
 server {
     listen 80;
@@ -203,6 +193,5 @@ EOF
 ln -s /etc/nginx/sites-available/${HOSTNAME} /etc/nginx/sites-enabled/${HOSTNAME} || true
 nginx -t && systemctl reload nginx
 
-###############################################################################
 echo "\n[CÀI ĐẶT HOÀN TẤT] n8n đang chạy tại: https://${HOSTNAME}"
 echo "Dùng tài khoản admin/admin123 để đăng nhập. Hãy đổi ngay sau khi login."
