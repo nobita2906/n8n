@@ -17,8 +17,7 @@ fi
 ###############################################################################
 TOTAL_RAM=$(free -m | awk '/Mem:/ { print $2 }')
 if [ "$TOTAL_RAM" -lt 1500 ]; then
-  echo "
-[Cảnh báo] VPS có RAM thấp (<1.5GB). Khuyên dùng VPS từ 2GB trở lên để tránh treo khi chạy n8n."
+  echo "\n[Cảnh báo] VPS có RAM thấp (<1.5GB). Khuyên dùng VPS từ 2GB trở lên để tránh treo khi chạy n8n."
 fi
 
 ###############################################################################
@@ -53,7 +52,10 @@ read -p "Nhập dung lượng swap (GB): " swap_size
 apt update -y && apt upgrade -y
 apt install -y curl gnupg2 ca-certificates lsb-release software-properties-common unzip zip ufw sudo
 
-# Cài FFmpeg
+# Cài FFmpeg (theo cách thủ công nếu cần version mới)
+echo "===== Cài đặt FFmpeg 7.1 ====="
+apt remove --purge -y ffmpeg || true
+apt autoremove -y
 add-apt-repository -y ppa:ubuntuhandbook1/ffmpeg7
 apt update -y && apt install -y ffmpeg
 
@@ -162,5 +164,5 @@ docker compose up -d
 
 ###############################################################################
 echo "
-[CÀI ĐẶT HOÀN TẤT] n8n đang chạy tại: https://${HOSTNAME}:5678"
+[CÀI ĐẶT HOÀN TẤT] n8n đang chạy tại: https://${HOSTNAME}"
 echo "Dùng tài khoản admin/admin123 để đăng nhập. Hãy đổi ngay sau khi login."
