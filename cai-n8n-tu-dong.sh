@@ -47,7 +47,7 @@ read -p "Nhập POSTGRES_DB: " POSTGRES_DB
 read -p "Nhập dung lượng swap (GB): " swap_size
 
 ###############################################################################
-# Cập nhật, cài gói, Nginx, Redis, Docker, FFmpeg...
+# Cập nhật, cài gói, Nginx, Docker, FFmpeg...
 ###############################################################################
 apt update -y && apt upgrade -y
 apt install -y curl gnupg2 ca-certificates lsb-release software-properties-common unzip zip ufw sudo
@@ -67,10 +67,8 @@ usermod -aG docker $USER
 # Cài Docker Compose Plugin
 apt install -y docker-compose-plugin
 
-# Cài Redis
-add-apt-repository -y ppa:redislabs/redis
-apt update -y && apt install -y redis-server
-systemctl enable redis-server && systemctl start redis-server
+# Bỏ cài Redis bên ngoài để tránh trùng port
+# Nếu cần Redis ngoài container, hãy chỉnh lại docker-compose.yml thủ công
 
 # Cài Let's Encrypt (nếu AUTO_SSL)
 if [[ "$AUTO_SSL" =~ ^[Yy]$ ]]; then
@@ -128,8 +126,6 @@ services:
 
   redis:
     image: redis:latest
-    ports:
-      - "6379:6379"
     restart: unless-stopped
 
   n8n:
@@ -163,6 +159,5 @@ chown -R 1000:1000 $INSTALL_DIR/* || true
 docker compose up -d
 
 ###############################################################################
-echo "
-[CÀI ĐẶT HOÀN TẤT] n8n đang chạy tại: https://${HOSTNAME}"
+echo "\n[CÀI ĐẶT HOÀN TẤT] n8n đang chạy tại: https://${HOSTNAME}"
 echo "Dùng tài khoản admin/admin123 để đăng nhập. Hãy đổi ngay sau khi login."
