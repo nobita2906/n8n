@@ -33,7 +33,7 @@ fi
 echo ""
 echo "Chọn kiểu SSL cho domain:"
 echo "  1. SSL tự động (Let's Encrypt - Certbot)"
-echo "  2. SSL thủ công (paste chứng chỉ)"
+echo "  2. SSL thủ công (paste chứng chỉ từ cloudflare)"
 read -p "Nhập lựa chọn (1 hoặc 2, mặc định là 1): " SSL_OPTION
 SSL_OPTION=${SSL_OPTION:-1}
 
@@ -50,9 +50,9 @@ if [ "$SSL_OPTION" = "2" ]; then
 fi
 
 echo ""
-read -p "Nhập POSTGRES_USER (ví dụ: n8n_zen_demo): " POSTGRES_USER
-read -p "Nhập POSTGRES_PASSWORD (ví dụ: n8n_pass_demo): " POSTGRES_PASSWORD
-read -p "Nhập POSTGRES_DB (ví dụ: n8n_db_demo): " POSTGRES_DB
+read -p "Nhập POSTGRES_USER (ví dụ: n8n_user): " POSTGRES_USER
+read -p "Nhập POSTGRES_PASSWORD (ví dụ: n8n_password): " POSTGRES_PASSWORD
+read -p "Nhập POSTGRES_DB (ví dụ: n8n_db): " POSTGRES_DB
 
 echo ""
 read -p "Nhập dung lượng swap (GB) cần tạo (ví dụ 2GB Ram thì nhập là 2): " swap_size
@@ -441,7 +441,7 @@ cd "$INSTALL_DIR"
 
 sudo docker compose pull
 sudo docker compose down || true
-sudo chown -R 1000:1000 "$INSTALL_DIR"/*
+sudo chown -R 1000:1000 "$INSTALL_DIR"
 sudo docker compose up -d
 
 echo "===== Đã tạo xong file docker-compose.yml và .env ====="
